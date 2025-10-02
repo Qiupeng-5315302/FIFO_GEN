@@ -1,0 +1,181 @@
+
+module ecc_31_top
+
+#
+
+(
+
+    parameter DATA_WIDTH = 31,
+
+    parameter PARITY_WIDTH = 7
+
+)
+
+(
+
+    input   [  DATA_WIDTH-1:0]   data_in,
+
+    output  [  DATA_WIDTH-1:0]   data_out,
+
+    input   [   PARITY_WIDTH-1:0]   parity_in,
+
+    output  [   PARITY_WIDTH-1:0]   parity_out,
+
+    input   bypass,
+
+    output  reg [  DATA_WIDTH-1:0]   mask,
+
+    output  sbit_err,
+
+    output  dbit_err
+
+);
+
+
+
+wire  [   PARITY_WIDTH-1:0]   syndrome;
+
+reg   [   1:0]              error;
+
+
+
+assign parity_out = ecc_encode(data_in);
+
+assign syndrome = parity_in ^ parity_out;
+
+assign data_out = bypass ? data_in : data_in ^ mask;
+
+assign sbit_err = bypass ? 1'b0 : error[0];
+
+assign dbit_err = bypass ? 1'b0 : error[1];
+
+
+
+
+
+always @(*)
+
+begin
+
+    error = 2'b00;
+
+    case(syndrome)
+
+    7'b0000000 : begin mask = 31'b0000000000000000000000000000000; error = 2'b00; end
+
+    7'b1000011 : begin mask = 31'b0000000000000000000000000000001; error = 2'b01; end
+
+    7'b1000101 : begin mask = 31'b0000000000000000000000000000010; error = 2'b01; end
+
+    7'b1000110 : begin mask = 31'b0000000000000000000000000000100; error = 2'b01; end
+
+    7'b0000111 : begin mask = 31'b0000000000000000000000000001000; error = 2'b01; end
+
+    7'b1001001 : begin mask = 31'b0000000000000000000000000010000; error = 2'b01; end
+
+    7'b1001010 : begin mask = 31'b0000000000000000000000000100000; error = 2'b01; end
+
+    7'b0001011 : begin mask = 31'b0000000000000000000000001000000; error = 2'b01; end
+
+    7'b1001100 : begin mask = 31'b0000000000000000000000010000000; error = 2'b01; end
+
+    7'b0001101 : begin mask = 31'b0000000000000000000000100000000; error = 2'b01; end
+
+    7'b0001110 : begin mask = 31'b0000000000000000000001000000000; error = 2'b01; end
+
+    7'b1001111 : begin mask = 31'b0000000000000000000010000000000; error = 2'b01; end
+
+    7'b1010001 : begin mask = 31'b0000000000000000000100000000000; error = 2'b01; end
+
+    7'b1010010 : begin mask = 31'b0000000000000000001000000000000; error = 2'b01; end
+
+    7'b0010011 : begin mask = 31'b0000000000000000010000000000000; error = 2'b01; end
+
+    7'b1010100 : begin mask = 31'b0000000000000000100000000000000; error = 2'b01; end
+
+    7'b0010101 : begin mask = 31'b0000000000000001000000000000000; error = 2'b01; end
+
+    7'b0010110 : begin mask = 31'b0000000000000010000000000000000; error = 2'b01; end
+
+    7'b1010111 : begin mask = 31'b0000000000000100000000000000000; error = 2'b01; end
+
+    7'b1011000 : begin mask = 31'b0000000000001000000000000000000; error = 2'b01; end
+
+    7'b0011001 : begin mask = 31'b0000000000010000000000000000000; error = 2'b01; end
+
+    7'b0011010 : begin mask = 31'b0000000000100000000000000000000; error = 2'b01; end
+
+    7'b1011011 : begin mask = 31'b0000000001000000000000000000000; error = 2'b01; end
+
+    7'b0011100 : begin mask = 31'b0000000010000000000000000000000; error = 2'b01; end
+
+    7'b1011101 : begin mask = 31'b0000000100000000000000000000000; error = 2'b01; end
+
+    7'b1011110 : begin mask = 31'b0000001000000000000000000000000; error = 2'b01; end
+
+    7'b0011111 : begin mask = 31'b0000010000000000000000000000000; error = 2'b01; end
+
+    7'b1100001 : begin mask = 31'b0000100000000000000000000000000; error = 2'b01; end
+
+    7'b1100010 : begin mask = 31'b0001000000000000000000000000000; error = 2'b01; end
+
+    7'b0100011 : begin mask = 31'b0010000000000000000000000000000; error = 2'b01; end
+
+    7'b1100100 : begin mask = 31'b0100000000000000000000000000000; error = 2'b01; end
+
+    7'b0100101 : begin mask = 31'b1000000000000000000000000000000; error = 2'b01; end
+
+    7'b1000000 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0100000 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0010000 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0001000 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0000100 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0000010 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    7'b0000001 : begin mask = 31'b0000000000000000000000000000000; error = 2'b01; end
+
+    default : begin mask = 31'b0000000000000000000000000000000; error = 2'b10; end
+
+    endcase
+
+end
+
+
+
+function [  PARITY_WIDTH-1:0] ecc_encode;
+
+    input [ DATA_WIDTH-1:0] d;
+
+    reg [ PARITY_WIDTH-1:0] p;
+
+    begin
+
+    p[0] = d[0] + d[1] + d[3] + d[4] + d[6] + d[8] + d[10] + d[11] + d[13] + d[15] + d[17] + d[19] + d[21] + d[23] + d[25] + d[26] + d[28] + d[30] ;
+
+    p[1] = d[0] + d[2] + d[3] + d[5] + d[6] + d[9] + d[10] + d[12] + d[13] + d[16] + d[17] + d[20] + d[21] + d[24] + d[25] + d[27] + d[28] ;
+
+    p[2] = d[1] + d[2] + d[3] + d[7] + d[8] + d[9] + d[10] + d[14] + d[15] + d[16] + d[17] + d[22] + d[23] + d[24] + d[25] + d[29] + d[30] ;
+
+    p[3] = d[4] + d[5] + d[6] + d[7] + d[8] + d[9] + d[10] + d[18] + d[19] + d[20] + d[21] + d[22] + d[23] + d[24] + d[25] ;
+
+    p[4] = d[11] + d[12] + d[13] + d[14] + d[15] + d[16] + d[17] + d[18] + d[19] + d[20] + d[21] + d[22] + d[23] + d[24] + d[25] ;
+
+    p[5] = d[26] + d[27] + d[28] + d[29] + d[30] ;
+
+    p[6] = d[0] + d[1] + d[2] + d[4] + d[5] + d[7] + d[10] + d[11] + d[12] + d[14] + d[17] + d[18] + d[21] + d[23] + d[24] + d[26] + d[27] + d[29] ;
+
+    ecc_encode = p;
+
+    end
+
+endfunction
+
+
+
+endmodule
+

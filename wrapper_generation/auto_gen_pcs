@@ -1,0 +1,49 @@
+
+
+#-------------------------------------------------------------------#
+#              RAM & FIFO Wrapper Auto Generation                   #
+#-------------------------------------------------------------------#
+
+# column0  = command
+# column1  = script
+# column2  = PORT_NUM
+# column3  = MEMORY_TYPE
+# column4  = RAM_DEPTH
+# column5  = DATA_WIDTH
+# column6  = PERIP_VT
+# column7  = BIT_WRITE
+# column8  = MULTIP
+# column9  = BANK
+# column10 = REDUNDANCY
+# column11 = LOW_POWER
+# column12 = INPUT_PIPE
+# column13 = OUTPUT_PIPE
+# column14 = ADDR_WIDTH
+# column15 = MODULE_NAME
+# column16 = FILE_PATH
+# column17 = ARGS
+
+#  0   |       1     |   2   |   3  |   4  |  5  |  6  | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 |           15                            |       16       |         17           |
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# as6s_pcs_tx
+python   auto_gen.py   TP      SRAM    256    68   SVT   0   8   4    0    0    0    0    8   as6s_pcs_tx_data_storage                 as6s_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TP      SRAM     32    76   SVT   0   8   4    0    0    0    0    5   as6s_pcs_tx_fec_storage                  as6s_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TP      SRAM    128    76   SVT   0   8   4    0    0    0    0    7   as6s_pcs_tx_itlv                         as6s_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TP      SRAM     64    76   SVT   0   8   4    0    0    0    0    6   as6s_pcs_tx_itlv                         as6s_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TPUHD   SRAM   4096    72   SVT   0   8   4    0    0    0    0   12   as6s_pcs_tx_blk_retransmit               as6s_pcs_gb      ram
+
+# as6s_pcs_rx
+python   auto_gen.py   TP      SRAM     32    72   SVT   0   8   4    0    0    0    0    5   as6s_pcs_rx_fec_decoder                  as6s_pcs_gb      ram fifo
+
+# as6d_pcs_tx
+python   auto_gen.py   TP      SRAM    256    68   SVT   0   8   4    0    0    0    0    8   as6d_pcs_tx_data_storage                 as6d_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TP      SRAM      8    66   SVT   0   8   4    0    0    0    0    3   as6d_pcs_tx_gpio_framesync_data_storage  as6d_pcs_gb          fifo  fwft_fifo
+python   auto_gen.py   TPUHD   SRAM     64    72   SVT   0   8   4    0    0    0    0    6   as6d_pcs_tx_blk_retransmit               as6d_pcs_gb      ram
+
+# as6d_pcs_rx
+python   auto_gen.py   TP      SRAM    128    72   SVT   0   8   4    0    0    0    0    7   as6d_pcs_rx_fec_decoder                  as6d_pcs_gb      ram fifo
+python   auto_gen.py   TP      SRAM    128    72   SVT   0   8   4    0    0    0    0    7   as6d_pcs_rx_deinterleaver                as6d_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TP      SRAM     16    72   SVT   0   8   4    0    0    0    0    4   as6d_pcs_rx_pldb                         as6d_pcs_gb      ram fifo  fwft_fifo
+python   auto_gen.py   TPUHD   SRAM     48    72   SVT   0   8   4    0    0    0    0    6   as6d_pcs_rx_retransmit                   as6d_pcs_gb      ram
+

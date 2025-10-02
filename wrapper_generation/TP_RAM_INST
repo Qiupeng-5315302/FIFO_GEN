@@ -1,0 +1,34 @@
+
+{module_name}_1r1w_{ram_depth}x{data_width}_ram_wrapper #(
+        .RAM_DEPTH                 ( FIFO_DEEP                 ),
+        .ADDR_WIDTH                ( ADDR_WIDTH                ),
+        .DATA_WIDTH                ( DATA_WIDTH                ),
+        .RAM_PIPE_STAGE            ( RAM_PIPE_STAGE            )
+    ) u0_{module_name}_1r1w_{ram_depth}x{data_width}_ram_wrapper (
+        //output ports
+        .QB_F                      ( rd_data                   ),
+        .ECC_FAULT_B               ( ecc_fault                 ),
+        .SINGLE_ERR_B              ( single_err                ),
+        .DOUBLE_ERR_B              ( double_err                ),
+
+        //global ports
+        .w_clk                     ( clk                       ),
+        .r_clk                     ( clk                       ),
+        .w_nrst                    ( rst_n                     ),
+        .r_nrst                    ( rst_n                     ),
+
+        //input ports
+        .ecc_addr_protect_en       ( ecc_addr_protect_en       ),
+        .ecc_fault_detc_en         ( ecc_fault_detc_en         ),
+        .reg_dft_tpram_config      ( reg_dft_tpram_config      ),
+        .BYPASS_WRITE_A            ( 1'd0                      ),
+        .CHECK_IN_A                ( 1'd0                      ),
+        .BYPASS_READ_B             ( ecc_bypass                ),
+        .CSA_F                     ( wen                       ),
+        .WEA_F                     ( wen                       ),
+        .AA_F                      ( wr_addr                   ),
+        .DA_F                      ( wr_data                   ),
+        .CSB_F                     ( ren                       ),
+        .REB_F                     ( ren                       ),
+        .AB_F                      ( rd_addr                   )
+    );

@@ -1,0 +1,5 @@
+
+python auto_gen.py TP SRAM 164 76 SVT 0 8 4 0 0 0 0 6 fifo_name route_name ram fifo fwft_fifo
+python auto_gen.py TP SRAM  32 72 SVT 0 8 4 0 0 0 0 5 fifo_name route_name ram fifo
+
+
