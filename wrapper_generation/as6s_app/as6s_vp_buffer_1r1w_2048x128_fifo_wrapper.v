@@ -1,10 +1,10 @@
 
-module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
+module as6s_vp_buffer_1r1w_2048x128_fifo_wrapper(/*AUTOARG*/
    // Outputs
    rd_data, rd_data_val, prog_empty, prog_full, ovf_int, udf_int,
    empty, full, ecc_fault, single_err, double_err,data_count_real,
    // Inputs
-   clk, rst_n, ram_bypass, data_trans_clr, {tpuhd_port}, prog_full_assert_cfg,
+   clk, rst_n, ram_bypass, data_trans_clr, reg_dft_sync_tpram_config, prog_full_assert_cfg,
    prog_full_negate_cfg, ecc_addr_protect_en, ecc_fault_detc_en, ecc_bypass,
    wr_data, wr_en, rd_en
    );
@@ -14,8 +14,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     // -----------------------------------------------------------------------------
 
     parameter   FLIPFLOP          = 0;
-    parameter   ADDR_WIDTH        = {addr_width};
-    parameter   DATA_WIDTH        = {data_width};
+    parameter   ADDR_WIDTH        = 11;
+    parameter   DATA_WIDTH        = 128;
     parameter   PROG_EMPTY_ASSERT = 4;              //fifo data count threshold of prog empty assert
     parameter   PROG_EMPTY_NEGATE = 4;              //fifo data count threshold of prog empty negate
     parameter   FIFO_DEEP         = 1<<ADDR_WIDTH;  //fifo data depth
@@ -42,7 +42,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     input                     data_trans_clr; //dataflow clear signal
 
     //input ports
-    {tpuhd_ram}
+    input  [9:0]              reg_dft_sync_tpram_config;
+
     input  [ADDR_WIDTH:0]     prog_full_assert_cfg; // almost full assert config
     input  [ADDR_WIDTH:0]     prog_full_negate_cfg; // almost full negate config
     input                     ecc_addr_protect_en;
@@ -110,10 +111,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
             ovf_int <= 1'b0;
             udf_int <= 1'b0;
         end
-        else if(data_trans_clr)begin
-            ovf_int <= 1'b0;
-            udf_int <= 1'b0;
-        end
         else begin
             ovf_int <= wr_en && full;
             udf_int <= rd_en && empty;
@@ -123,13 +120,13 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     //generate the ram write address
     always @(posedge clk or negedge rst_n)begin
         if(~rst_n)begin
-            waddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            waddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(data_trans_clr)begin
-            waddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            waddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(wen)begin
-            waddr <= (waddr == (FIFO_DEEP - 1))? {{(ADDR_WIDTH + 1){{1'b0}}}}: (waddr + 1'b1);
+            waddr <= (waddr == (FIFO_DEEP - 1))? {(ADDR_WIDTH + 1){1'b0}}: (waddr + 1'b1);
         end
         else begin
             waddr <= waddr;
@@ -149,13 +146,13 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     //generate the ram read address
     always @(posedge clk or negedge rst_n)begin
         if(~rst_n)begin
-            raddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            raddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(data_trans_clr)begin
-            raddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            raddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(ren)begin
-            raddr <= (raddr == (FIFO_DEEP - 1))? {{(ADDR_WIDTH + 1){{1'b0}}}}: (raddr + 1'b1);
+            raddr <= (raddr == (FIFO_DEEP - 1))? {(ADDR_WIDTH + 1){1'b0}}: (raddr + 1'b1);
         end
         else begin
             raddr <= raddr;
@@ -172,10 +169,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     //data counter
     always @(posedge clk or negedge rst_n)begin
         if(~rst_n)begin
-            data_count <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            data_count <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(data_trans_clr)begin
-            data_count <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            data_count <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(wen && (!ren))begin
             data_count <= data_count + 1'b1;
@@ -188,10 +185,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     //data counter
     always @(posedge clk or negedge rst_n)begin
         if(~rst_n)begin
-            data_count_real <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            data_count_real <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(data_trans_clr)begin
-            data_count_real <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            data_count_real <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(wen && (!rd_data_val))begin
             data_count_real <= data_count_real + 1'b1;
@@ -287,7 +284,38 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper(/*AUTOARG*/
     assign ren_l = ~ren;
 
     generate if(FLIPFLOP == 0)begin: MEM_INST_BK
-    {ram_inst}
+    
+as6s_vp_buffer_1r1w_2048x128_ram_wrapper #(
+        .RAM_DEPTH                 ( FIFO_DEEP                 ),
+        .ADDR_WIDTH                ( ADDR_WIDTH                ),
+        .DATA_WIDTH                ( DATA_WIDTH                ),
+        .RAM_PIPE_STAGE            ( RAM_PIPE_STAGE            )
+    ) u0_as6s_vp_buffer_1r1w_2048x128_ram_wrapper (
+        //output ports
+        .QB_F                      ( rd_data                   ),
+        .ECC_FAULT_B               ( ecc_fault                 ),
+        .SINGLE_ERR_B              ( single_err                ),
+        .DOUBLE_ERR_B              ( double_err                ),
+
+        //global ports
+        .clk                       ( clk                       ),
+        .nrst                      ( rst_n                     ),
+
+        //input ports
+        .ecc_addr_protect_en       ( ecc_addr_protect_en       ),
+        .ecc_fault_detc_en         ( ecc_fault_detc_en         ),
+        .reg_dft_sync_tpram_config ( reg_dft_sync_tpram_config ),
+        .BYPASS_WRITE_A            ( 1'd0                      ),
+        .CHECK_IN_A                ( 1'd0                      ),
+        .BYPASS_READ_B             ( ecc_bypass                ),
+        .CSA_F                     ( wen                       ),
+        .WEA_F                     ( wen                       ),
+        .AA_F                      ( wr_addr                   ),
+        .DA_F                      ( wr_data                   ),
+        .CSB_F                     ( ren                       ),
+        .REB_F                     ( ren                       ),
+        .AB_F                      ( rd_addr                   )
+    );
     end
     else begin: FLIPFLOP_BK
 

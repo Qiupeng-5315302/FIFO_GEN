@@ -1,12 +1,12 @@
 
-module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
+module as6d_vp_buffer_1r1w_4096x128_afifo_wrapper(/*AUTOARG*/
    // Outputs
    prog_full, full, ecc_fault, prog_empty, empty, rd_data, rd_data_val,
    single_err, double_err, ovf_int, udf_int, data_count,
    // Inputs
    wr_rst_n, wr_clk, wr_en, wr_data, prog_full_assert_cfg,reg_dft_tpram_config,
    prog_full_negate_cfg, ecc_addr_protect_en, ecc_fault_detc_en, ecc_bypass,
-   ram_bypass, rd_rst_n, rd_clk, rd_en, wr_domain_clear, rd_domain_clear
+   ram_bypass, rd_rst_n, rd_clk, rd_en
    );
 
 
@@ -15,8 +15,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     // -----------------------------------------------------------------------------
 
     parameter   FLIPFLOP                = 0;
-    parameter   ADDR_WIDTH              = {addr_width};
-    parameter   DATA_WIDTH              = {data_width};
+    parameter   ADDR_WIDTH              = 12;
+    parameter   DATA_WIDTH              = 128;
     parameter   PROG_EMPTY_ASSERT       = 4;             //fifo data count threshold of prog empty assert
     parameter   PROG_EMPTY_NEGATE       = 4;             //fifo data count threshold of prog empty negate
     parameter   FIFO_DEEP               = 1<<ADDR_WIDTH;
@@ -53,8 +53,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     input                    rd_rst_n;                   //fifo reset
     input                    rd_clk;                     //read clock
     input                    rd_en;                      //input read enable
-    input                    wr_domain_clear;            //write domain synchronous clear
-    input                    rd_domain_clear;            //read domain synchronous clear
 
 
     // -----------------------------------------------------------------------------
@@ -111,26 +109,22 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //assign data_count = rd_gap;
     assign data_count = rd_gap_for_data_count;
 
-    bus_delay_clr #(
+    bus_delay #(
         .DELAY_CYCLES ( RAM_PIPE_STAGE ),
         .BUS_WIDTH    ( 1              ),
         .INIT_VAL     ( 0              )
-    ) bus_delay_clr_u0 (
+    ) bus_delay_u0 (
         .clk          ( rd_clk         ),
         .rst_n        ( rd_rst_n       ),
-        .clear        ( rd_domain_clear),
         .inbus        ( ren            ),
         .outbus       ( rd_data_val    )
     );
 
     //fifo read addr generated for data count
-    assign {{ovf_nc2,rd_gap_for_data_count}} = waddr_sync - raddr_for_data_count; //
+    assign {ovf_nc2,rd_gap_for_data_count} = waddr_sync - raddr_for_data_count; //
     always @(posedge rd_clk or negedge rd_rst_n)begin
         if(~rd_rst_n)begin
-            raddr_for_data_count <= {{(ADDR_WIDTH + 1){{1'b0}}}};
-        end
-        else if(rd_domain_clear)begin               //synchronous clear has higher priority
-            raddr_for_data_count <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            raddr_for_data_count <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(rd_data_val)begin
             raddr_for_data_count <= raddr_for_data_count + 1'b1;
@@ -181,9 +175,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
         if(~wr_rst_n)begin
             ovf_int <= 1'b0;
         end
-        else if(wr_domain_clear) begin
-            ovf_int <= 1'b0;
-        end
         else begin
             ovf_int <= wr_en && full;
         end
@@ -192,10 +183,7 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //fifo write address generated
     always @(posedge wr_clk or negedge wr_rst_n)begin
         if(~wr_rst_n)begin
-            waddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
-        end
-        else if(wr_domain_clear)begin               //synchronous clear has higher priority
-            waddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            waddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(wen)begin                           //forbid writing when fifo is full
             waddr <= waddr + 1'b1;
@@ -207,13 +195,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //fifo write address: bin to gray
     always @(posedge wr_clk or negedge wr_rst_n)begin
         if(~wr_rst_n)begin
-            waddr_gray  <= {{(ADDR_WIDTH + 1){{1'b0}}}};
-        end
-        else if(wr_domain_clear)begin               //synchronous clear has higher priority
-            waddr_gray  <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            waddr_gray  <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else begin
-            waddr_gray  <= waddr ^ {{1'b0,waddr[ADDR_WIDTH:1]}};
+            waddr_gray  <= waddr ^ {1'b0,waddr[ADDR_WIDTH:1]};
         end
     end
 
@@ -232,15 +217,12 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     assign raddr_sync = gray2bin(raddr_gray_sync); //fifo raddr address gray to bin
 
     //gap form write pointer to read pointer
-    assign {{ovf_nc0,wr_gap}} = (raddr_sync - waddr) + FIFO_DEEP; //
-    assign {{ovf_nc1,wr_data_cnt[ADDR_WIDTH:0]}} = waddr[ADDR_WIDTH:0] - raddr_sync[ADDR_WIDTH:0]; //
+    assign {ovf_nc0,wr_gap} = (raddr_sync - waddr) + FIFO_DEEP; //
+    assign {ovf_nc1,wr_data_cnt[ADDR_WIDTH:0]} = waddr[ADDR_WIDTH:0] - raddr_sync[ADDR_WIDTH:0]; //
 
     //generated almost full signal
     always @(posedge wr_clk or negedge wr_rst_n)begin
         if(~wr_rst_n)begin
-            prog_full <= 1'b0;
-        end
-        else if(wr_domain_clear)begin               //synchronous clear has higher priority
             prog_full <= 1'b0;
         end
         else begin
@@ -259,9 +241,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //generated full signal
     always @(posedge wr_clk or negedge wr_rst_n)begin
         if(~wr_rst_n)begin
-            full <= 1'b0;
-        end
-        else if(wr_domain_clear)begin               //synchronous clear has higher priority
             full <= 1'b0;
         end
         else begin
@@ -285,9 +264,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
         if(~rd_rst_n)begin
             udf_int <= 1'b0;
         end
-        else if(rd_domain_clear)begin
-            udf_int <= 1'b0;
-        end
         else begin
             udf_int <= rd_en && empty;
         end
@@ -296,10 +272,7 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //fifo read addr generated
     always @(posedge rd_clk or negedge rd_rst_n)begin
         if(~rd_rst_n)begin
-            raddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
-        end
-        else if(rd_domain_clear)begin               //synchronous clear has higher priority
-            raddr <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            raddr <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else if(ren)begin
             raddr <= raddr + 1'b1;
@@ -311,13 +284,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     //fifo read addr: bin to gray
     always @(posedge rd_clk or negedge rd_rst_n)begin
         if(~rd_rst_n)begin
-            raddr_gray <= {{(ADDR_WIDTH + 1){{1'b0}}}};
-        end
-        else if(rd_domain_clear)begin               //synchronous clear has higher priority
-            raddr_gray <= {{(ADDR_WIDTH + 1){{1'b0}}}};
+            raddr_gray <= {(ADDR_WIDTH + 1){1'b0}};
         end
         else begin
-            raddr_gray <= raddr ^ {{1'b0,raddr[ADDR_WIDTH:1]}};
+            raddr_gray <= raddr ^ {1'b0,raddr[ADDR_WIDTH:1]};
         end
     end
 
@@ -335,14 +305,11 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     assign waddr_sync = gray2bin(waddr_gray_sync); //write addr bin
 
     //gap form read pointer to write pointer
-    assign {{ovf_nc2,rd_gap}} = waddr_sync - raddr; //
+    assign {ovf_nc2,rd_gap} = waddr_sync - raddr; //
 
     //generated almost empty signal
     always @(posedge rd_clk or negedge rd_rst_n)begin
         if(~rd_rst_n)begin
-            prog_empty <= 1'b1;
-        end
-        else if(rd_domain_clear)begin               //synchronous clear has higher priority
             prog_empty <= 1'b1;
         end
         else begin
@@ -363,9 +330,6 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
         if(~rd_rst_n)begin
             empty <= 1'b1;
         end
-        else if(rd_domain_clear)begin               //synchronous clear has higher priority
-            empty <= 1'b1;
-        end
         else begin
             empty <= (!(|rd_gap)) || ((rd_gap == 1) & rd_en);
         end
@@ -381,7 +345,40 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_afifo_wrapper(/*AUTOARG*/
     assign wen_l = ~wen;
     assign ren_l = ~ren;
     generate if(FLIPFLOP == 0)begin: MEM_INST_BK
-    {ram_inst}
+    
+as6d_vp_buffer_1r1w_4096x128_ram_wrapper #(
+        .RAM_DEPTH                 ( FIFO_DEEP                 ),
+        .ADDR_WIDTH                ( ADDR_WIDTH                ),
+        .DATA_WIDTH                ( DATA_WIDTH                ),
+        .RAM_PIPE_STAGE            ( RAM_PIPE_STAGE            )
+    ) u0_as6d_vp_buffer_1r1w_4096x128_ram_wrapper (
+        //output ports
+        .QB_F                      ( rd_data                   ),
+        .ECC_FAULT_B               ( ecc_fault                 ),
+        .SINGLE_ERR_B              ( single_err                ),
+        .DOUBLE_ERR_B              ( double_err                ),
+
+        //global ports
+        .w_clk                     ( wr_clk                    ),
+        .r_clk                     ( rd_clk                    ),
+        .w_nrst                    ( wr_rst_n                  ),
+        .r_nrst                    ( rd_rst_n                  ),
+
+        //input ports
+        .ecc_addr_protect_en       ( ecc_addr_protect_en       ),
+        .ecc_fault_detc_en         ( ecc_fault_detc_en         ),
+        .reg_dft_tpram_config      ( reg_dft_tpram_config      ),
+        .BYPASS_WRITE_A            ( 1'd0                      ),
+        .CHECK_IN_A                ( 1'd0                      ),
+        .BYPASS_READ_B             ( ecc_bypass                ),
+        .CSA_F                     ( wen                       ),
+        .WEA_F                     ( wen                       ),
+        .AA_F                      ( wr_addr                   ),
+        .DA_F                      ( wr_data                   ),
+        .CSB_F                     ( ren                       ),
+        .REB_F                     ( ren                       ),
+        .AB_F                      ( rd_addr                   )
+    );
     end
     else begin: FLIPFLOP_BK
     

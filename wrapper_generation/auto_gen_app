@@ -21,7 +21,8 @@
 
 # 0  |     1     |   2   |   3  |   4  |  5  |  6  | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 |       15         |        16       |           17            |
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-python auto_gen.py   TP    SRAM   2048   128   SVT   0   8   4   0     0    0    0   11    as6s_vp_buffer        as6s_app       afifo fwft_afifo  ram
-python auto_gen.py   TP    SRAM   4096   128   SVT   0   8   4   0     0    0    0   12    as6d_vp_buffer        as6d_app       afifo fwft_afifo  ram
-
+python auto_gen_local.py   TPUHD    SRAM   2048   128   SVT   0   8   4   0     0    0    0   11    as6s_vp_buffer        as6s_app       fifo fwft_fifo  ram
+python auto_gen_local.py   TP    SRAM   16   128   SVT   0   8   4   0     0    0    0   4    as6s_vp_buffer        as6s_app       afifo fwft_afifo  ram
+python auto_gen_local.py   TP    SRAM   4096   128   SVT   0   8   4   0     0    0    0   12    as6d_vp_buffer        as6d_app       afifo fwft_afifo  ram
+python auto_gen_local.py   TP    SRAM   16   102   SVT   0   8   4   0     0    0    0   12    as6d_app_video_status_buffer        as6d_app       afifo fwft_afifo  ram
 

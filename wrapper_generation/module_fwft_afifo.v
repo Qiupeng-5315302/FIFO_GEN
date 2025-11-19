@@ -6,7 +6,7 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
    // Inputs
    wr_clk, wr_rst_n, rd_clk, rd_rst_n, ram_bypass, {tpuhd_port},
    prog_full_assert_cfg, prog_full_negate_cfg, ecc_addr_protect_en, ecc_bypass,
-   ecc_fault_detc_en, wr_data, wr_en, rd_en
+   ecc_fault_detc_en, wr_data, wr_en, rd_en, wr_domain_clear, rd_domain_clear
    );
 
 
@@ -61,6 +61,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
     input  [(DATA_WIDTH-1):0] wr_data;              //input data to fifo
     input                     wr_en;                //write enable
     input                     rd_en;                //read enable
+    input                     wr_domain_clear;      //write domain synchronous clear
+    input                     rd_domain_clear;      //read domain synchronous clear
 
 
     // -----------------------------------------------------------------------------
@@ -114,6 +116,9 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
         if(~wr_rst_n)begin
             ovf_int <= 1'b0;
         end
+        else if(wr_domain_clear)begin
+            ovf_int <= 1'b0;
+        end
         else begin
             ovf_int <= wr_en && full;
         end
@@ -125,6 +130,9 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
         if(~rd_rst_n)begin
             udf_int <= 1'b0;
         end
+        else if(rd_domain_clear)begin
+            udf_int <= 1'b0;
+        end
         else begin
             udf_int <= rd_en && empty;
         end
@@ -132,6 +140,9 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
 
     always @(posedge rd_clk or negedge rd_rst_n) begin
         if(~rd_rst_n)begin
+            in_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+        end
+        else if(rd_domain_clear)begin               //synchronous clear has higher priority
             in_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
         end
         else if(s_rd_en)begin
@@ -143,6 +154,9 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
         if(~rd_rst_n)begin
             out_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
         end
+        else if(rd_domain_clear)begin               //synchronous clear has higher priority
+            out_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+        end
         else if(ren)begin
             out_active <= {{out_active[(PRE_REG_NUM-2):0], out_active[PRE_REG_NUM-1]}};
         end
@@ -152,6 +166,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
         for(i=0;i<PRE_REG_NUM;i=i+1)begin: generate_pre_rd_data
             always @(posedge rd_clk or negedge rd_rst_n)begin
                 if (~rd_rst_n)begin
+                    pre_rd_data[i] <= 0;
+                    pre_rd_data_val[i] <= 1'b0;
+                end
+                else if(rd_domain_clear)begin           //synchronous clear has higher priority
                     pre_rd_data[i] <= 0;
                     pre_rd_data_val[i] <= 1'b0;
                 end
@@ -190,13 +208,14 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
     assign s_wr_en = wen;
     assign s_rd_en = (~s_empty) & ((in_active & pre_rd_data_val) == {{PRE_REG_NUM{{1'b0}}}});
 
-    bus_delay #(
+    bus_delay_clr #(
         .DELAY_CYCLES ( RAM_PIPE_STAGE                  ),
         .BUS_WIDTH    ( PRE_REG_NUM                     ),
         .INIT_VAL     ( {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}} )
-    ) bus_delay_u0 (
+    ) bus_delay_clr_u0 (
         .clk          ( rd_clk       ),
         .rst_n        ( rd_rst_n     ),
+        .clear        ( rd_domain_clear ),
         .inbus        ( in_active    ),
         .outbus       ( in_active_nr )
     );
@@ -235,7 +254,9 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_afifo_wrapper(/*AUTOARG*
         .wr_data                   ( s_wr_data                 ),
         .wr_en                     ( s_wr_en                   ),
         .rd_en                     ( s_rd_en                   ),
-        .data_count                ( data_count_pre            )
+        .data_count                ( data_count_pre            ),
+        .wr_domain_clear           ( wr_domain_clear           ),
+        .rd_domain_clear           ( rd_domain_clear           )
     );
     
     integer j;

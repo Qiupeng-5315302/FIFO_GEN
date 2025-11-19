@@ -1,12 +1,12 @@
 
-module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
+module as6s_vp_buffer_1r1w_16x128_fwft_afifo_wrapper(/*AUTOARG*/
    // Outputs
    rd_data, rd_data_val, ecc_fault, single_err, double_err, ovf_int,
-   udf_int, prog_full, empty, full,data_count,
+   udf_int, prog_full, empty, full, data_count,
    // Inputs
-   clk, rst_n, ram_bypass, data_trans_clr, {tpuhd_port},
+   wr_clk, wr_rst_n, rd_clk, rd_rst_n, ram_bypass, reg_dft_tpram_config,
    prog_full_assert_cfg, prog_full_negate_cfg, ecc_addr_protect_en, ecc_bypass,
-   ecc_fault_detc_en, wr_data, wr_en, rd_en
+   ecc_fault_detc_en, wr_data, wr_en, rd_en, wr_domain_clear, rd_domain_clear
    );
 
 
@@ -15,8 +15,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
     // -----------------------------------------------------------------------------
 
     parameter   FLIPFLOP              = 0;
-    parameter   ADDR_WIDTH            = {addr_width};
-    parameter   DATA_WIDTH            = {data_width};
+    parameter   ADDR_WIDTH            = 4;
+    parameter   DATA_WIDTH            = 128;
     parameter   PROG_EMPTY_ASSERT     = 4;             //fifo data count threshold of prog empty assert
     parameter   PROG_EMPTY_NEGATE     = 4;             //fifo data count threshold of prog empty negate
     parameter   FIFO_DEEP             = 1<<ADDR_WIDTH; //fifo data depth
@@ -44,13 +44,15 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
     output [ADDR_WIDTH:0]     data_count;
 
     //global ports
-    input                     clk;                  //input clk
-    input                     rst_n;                //globe aysn rst_n
+    input                     wr_clk;               //input wr_clk
+    input                     wr_rst_n;             //globe aysn wr_rst_n
+    input                     rd_clk;               //input rd_clk
+    input                     rd_rst_n;             //globe aysn rd_rst_n
     input                     ram_bypass;           //
-    input                     data_trans_clr;       //dataflow clear signal
 
     //input ports
-    {tpuhd_ram}
+    input  [8:0]              reg_dft_tpram_config;
+
     input  [ADDR_WIDTH:0]     prog_full_assert_cfg; //almost full assert config
     input  [ADDR_WIDTH:0]     prog_full_negate_cfg; //almost full negate config
     input                     ecc_addr_protect_en;
@@ -60,6 +62,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
     input  [(DATA_WIDTH-1):0] wr_data;              //input data to fifo
     input                     wr_en;                //write enable
     input                     rd_en;                //read enable
+    input                     wr_domain_clear;      //write domain synchronous clear
+    input                     rd_domain_clear;      //read domain synchronous clear
 
 
     // -----------------------------------------------------------------------------
@@ -109,12 +113,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
     assign empty     = ~rd_data_val;
     assign prog_full = s_prog_full;
 
-    always @(posedge clk or negedge rst_n)begin
-        if(~rst_n)begin
+    always @(posedge wr_clk or negedge wr_rst_n)begin
+        if(~wr_rst_n)begin
             ovf_int <= 1'b0;
         end
-        else if(data_trans_clr)begin
-            ovf_int <= 1'b0;
         else begin
             ovf_int <= wr_en && full;
         end
@@ -122,49 +124,47 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
 
     assign full = s_full;
 
-    always@(posedge clk or negedge rst_n)begin
-        if(~rst_n)begin
+    always@(posedge rd_clk or negedge rd_rst_n)begin
+        if(~rd_rst_n)begin
             udf_int <= 1'b0;
         end
-        else if(data_trans_clr)begin
-            udf_int <= 1'b0;
         else begin
             udf_int <= rd_en && empty;
         end
     end
 
-    always @(posedge clk or negedge rst_n) begin
-        if(~rst_n)begin
-            in_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+    always @(posedge rd_clk or negedge rd_rst_n) begin
+        if(~rd_rst_n)begin
+            in_active <= {{(PRE_REG_NUM-1){1'b0}}, 1'b1};
         end
-        else if(data_trans_clr)begin
-            in_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+        else if(rd_domain_clear)begin               //synchronous clear has higher priority
+            in_active <= {{(PRE_REG_NUM-1){1'b0}}, 1'b1};
         end
         else if(s_rd_en)begin
-            in_active <= {{in_active[(PRE_REG_NUM-2):0], in_active[PRE_REG_NUM-1]}};
+            in_active <= {in_active[(PRE_REG_NUM-2):0], in_active[PRE_REG_NUM-1]};
         end
     end
 
-    always @(posedge clk or negedge rst_n)begin
-        if(~rst_n)begin
-            out_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+    always @(posedge rd_clk or negedge rd_rst_n)begin
+        if(~rd_rst_n)begin
+            out_active <= {{(PRE_REG_NUM-1){1'b0}}, 1'b1};
         end
-        else if(data_trans_clr)begin
-            out_active <= {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}};
+        else if(rd_domain_clear)begin               //synchronous clear has higher priority
+            out_active <= {{(PRE_REG_NUM-1){1'b0}}, 1'b1};
         end
         else if(ren)begin
-            out_active <= {{out_active[(PRE_REG_NUM-2):0], out_active[PRE_REG_NUM-1]}};
+            out_active <= {out_active[(PRE_REG_NUM-2):0], out_active[PRE_REG_NUM-1]};
         end
     end
 
     generate
         for(i=0;i<PRE_REG_NUM;i=i+1)begin: generate_pre_rd_data
-            always @(posedge clk or negedge rst_n)begin
-                if (~rst_n)begin
+            always @(posedge rd_clk or negedge rd_rst_n)begin
+                if (~rd_rst_n)begin
                     pre_rd_data[i] <= 0;
                     pre_rd_data_val[i] <= 1'b0;
                 end
-                else if(data_trans_clr)begin
+                else if(rd_domain_clear)begin           //synchronous clear has higher priority
                     pre_rd_data[i] <= 0;
                     pre_rd_data_val[i] <= 1'b0;
                 end
@@ -181,7 +181,7 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
 
     generate
         for(i=0;i<PRE_REG_NUM;i=i+1)begin: generate_pre_rd_data_mask
-            assign pre_rd_data_mask[i] = pre_rd_data[i] & {{DATA_WIDTH{{out_active[i]}}}};
+            assign pre_rd_data_mask[i] = pre_rd_data[i] & {DATA_WIDTH{out_active[i]}};
         end
     endgenerate
 
@@ -201,21 +201,21 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
     assign s_prog_full_negate_cfg = prog_full_negate_cfg;
     assign s_wr_data = wr_data;
     assign s_wr_en = wen;
-    assign s_rd_en = (~s_empty) & ((in_active & pre_rd_data_val) == {{PRE_REG_NUM{{1'b0}}}});
+    assign s_rd_en = (~s_empty) & ((in_active & pre_rd_data_val) == {PRE_REG_NUM{1'b0}});
 
     bus_delay_clr #(
         .DELAY_CYCLES ( RAM_PIPE_STAGE                  ),
         .BUS_WIDTH    ( PRE_REG_NUM                     ),
-        .INIT_VAL     ( {{{{(PRE_REG_NUM-1){{1'b0}}}}, 1'b1}} )
+        .INIT_VAL     ( {{(PRE_REG_NUM-1){1'b0}}, 1'b1} )
     ) bus_delay_clr_u0 (
-        .clk          ( clk          ),
-        .rst_n        ( rst_n        ),
-        .clear        ( data_trans_clr ),
+        .clk          ( rd_clk       ),
+        .rst_n        ( rd_rst_n     ),
+        .clear        ( rd_domain_clear ),
         .inbus        ( in_active    ),
         .outbus       ( in_active_nr )
     );
 
-    {module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper #(
+    as6s_vp_buffer_1r1w_16x128_afifo_wrapper #(
         .FLIPFLOP                  ( FLIPFLOP                  ),
         .ADDR_WIDTH                ( ADDR_WIDTH                ),
         .DATA_WIDTH                ( DATA_WIDTH                ),
@@ -223,8 +223,8 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
         .PROG_EMPTY_NEGATE         ( PROG_EMPTY_NEGATE         ),
         .FIFO_DEEP                 ( FIFO_DEEP                 ),
         .RAM_PIPE_STAGE            ( RAM_PIPE_STAGE            )
-    ) u0_{module_name}_1r1w_{ram_depth}x{data_width}_fifo_wrapper (
-        .{tpuhd_port:<25} ( {tpuhd_port:<25} ),
+    ) u0_as6s_vp_buffer_1r1w_16x128_afifo_wrapper (
+        .reg_dft_tpram_config      ( reg_dft_tpram_config      ),
         .rd_data                   ( s_rd_data                 ),
         .rd_data_val               ( s_rd_data_val             ),
         .ecc_fault                 ( ecc_fault                 ),
@@ -237,9 +237,10 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
         .udf_int                   ( udf_int_nc                ),
         .empty                     ( s_empty                   ),
         .full                      ( s_full                    ),
-        .clk                       ( clk                       ),
-        .rst_n                     ( rst_n                     ),
-        .data_trans_clr            ( data_trans_clr            ),
+        .wr_clk                    ( wr_clk                    ),
+        .wr_rst_n                  ( wr_rst_n                  ),
+        .rd_clk                    ( rd_clk                    ),
+        .rd_rst_n                  ( rd_rst_n                  ),
         .prog_full_assert_cfg      ( s_prog_full_assert_cfg    ),
         .prog_full_negate_cfg      ( s_prog_full_negate_cfg    ),
         .ecc_addr_protect_en       ( ecc_addr_protect_en       ),
@@ -248,17 +249,19 @@ module {module_name}_1r1w_{ram_depth}x{data_width}_fwft_fifo_wrapper(/*AUTOARG*/
         .wr_data                   ( s_wr_data                 ),
         .wr_en                     ( s_wr_en                   ),
         .rd_en                     ( s_rd_en                   ),
-        .data_count_real           ( data_count_pre            )
+        .data_count                ( data_count_pre            ),
+        .wr_domain_clear           ( wr_domain_clear           ),
+        .rd_domain_clear           ( rd_domain_clear           )
     );
-
+    
     integer j;
     always@(*)begin
-        pre_read_num = {{PRE_REG_NUM{{1'd0}}}};
+        pre_read_num = {PRE_REG_NUM{1'd0}};
         for (j=0;j<PRE_REG_NUM;j=j+1)begin
             if(pre_rd_data_val[j])
                 pre_read_num = pre_read_num + 1'd1;
         end
     end
-    assign {{data_count_nc,data_count}} = pre_read_num + data_count_pre;
+    assign {data_count_nc,data_count} = pre_read_num + data_count_pre;
 
 endmodule
